@@ -8,10 +8,10 @@
 
 
 FirebaseData firebaseData; // Cria um objeto para armazenar os dados do Firebase
-
+const int pinoSensorUmidade = A0;
 void setup() {
   Serial.begin(9600);
-
+  pinMode(pinoSensorUmidade,INPUT);
 
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD); // Conecta o ESP32 à sua rede Wi-Fi
   while (WiFi.status() != WL_CONNECTED) {
@@ -29,7 +29,7 @@ void loop() {
 
   int temperature = Firebase.get(firebaseData, "/planta/temperatura");
   int humidity = Firebase.get(firebaseData, "/planta/umidade");
-
+  Firebase.setString(firebaseData,"/mario", analogRead(pinoSensorUmidade));
   // Faz um get da string a partir do nó /mario no Firebase
  // if (Firebase.getString(firebaseData, "/mario")) {
  //   String myString = firebaseData.jsonString();
@@ -40,11 +40,13 @@ void loop() {
  // } else {
  //   Serial.println("Failed to get string from Firebase!");
  // }
+ Serial.println(analogRead(pinoSensorUmidade));
+  
     if(Firebase.getInt(firebaseData,"/planta/umidade")){
       if(firebaseData.dataType()=="int"){
-        intValue = firebaseData.intData();
+        //intValue = firebaseData.intData();
         Serial.print("Umidade: ");
-        Serial.println(intValue);
+        //Serial.println(intValue);
       }else{
         Serial.println(firebaseData.errorReason());
       }
