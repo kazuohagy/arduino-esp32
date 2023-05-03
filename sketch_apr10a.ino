@@ -6,8 +6,13 @@
 #define WIFI_SSID "Kazuo_EXT"
 #define WIFI_PASSWORD "12345678w"
 
-
+// Variáveis globais
 FirebaseData firebaseData; // Cria um objeto para armazenar os dados do Firebase
+// Crie um objeto FirebaseESP32 para acessar o Firestore
+FirebaseESP32 firebase;
+
+
+
 const int pinoSensorUmidade = A0;
 void setup() {
   Serial.begin(9600);
@@ -20,6 +25,9 @@ void setup() {
   }
 
   Firebase.begin(FIREBASE_HOST, FIREBASE_AUTH); // Inicia a conexão do Firebase
+
+  
+
 }
 
 // the loop function runs over and over again forever
@@ -29,7 +37,25 @@ void loop() {
 
   int temperature = Firebase.get(firebaseData, "/planta/temperatura");
   int humidity = Firebase.get(firebaseData, "/planta/umidade");
-  Firebase.setString(firebaseData,"/mario", analogRead(pinoSensorUmidade));
+  Firebase.setString(firebaseData,"/solo", analogRead(pinoSensorUmidade));
+
+  // Gere um número aleatório
+  int random_number = random(100);
+
+  // Crie um objeto JSON com o número aleatório
+  FirebaseJson json;
+  json.add("number", random_number);
+
+  // Envie o objeto JSON para o Firestore
+  if (Firebase.setJSON(firebaseData, "/random_number", json)) {
+    Serial.print("Sent random number to Firestore: ");
+    Serial.println(random_number);
+  } else {
+    Serial.print("Failed to send random number to Firestore: ");
+    Serial.println(firebaseData.errorReason());
+  }
+  
+  Firebase.Firestore.createDocument(&fbdo, FIREBASE_PROJECT_ID, "", documentPath.c_str(), content.raw())
   // Faz um get da string a partir do nó /mario no Firebase
  // if (Firebase.getString(firebaseData, "/mario")) {
  //   String myString = firebaseData.jsonString();
@@ -51,7 +77,7 @@ void loop() {
         Serial.println(firebaseData.errorReason());
       }
     }
-    if (Firebase.get(firebaseData, "/mario")) {
+    if (Firebase.get(firebaseData, "/solo")) {
     // Verifica o tipo de dados retornados
     if (firebaseData.dataType() == "string") {
       String myString = firebaseData.stringData();
