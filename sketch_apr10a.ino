@@ -8,7 +8,11 @@
 #define RELAY_PIN 15
 
 FirebaseData firebaseData; // Cria um objeto para armazenar os dados do Firebase
+
 const int pinoSensorUmidade = A0;
+float percentHumidity;
+float humidity;
+
 void setup() {
   Serial.begin(9600);
   pinMode(RELAY_PIN, OUTPUT);
@@ -25,12 +29,21 @@ void setup() {
 
 // the loop function runs over and over again forever
 void loop() {
-  delay(2000); // Aguarda 2 segundos antes de recuperar os dados do Firebase
+  //delay(1000); // Aguarda 1 segundos antes de recuperar os dados do Firebase
   // Recupera a temperatura e a umidade do Firebase
 
+  humidity = analogRead(pinoSensorUmidade);
+  // Lendo dados
+  percentHumidity = map(humidity, 0,4095, 100, 0);
+  //int humidity = Firebase.get(firebaseData, "/planta/umidade");
+  if(percentHumidity < 50){
+    digitalWrite(RELAY_PIN, HIGH); // Ligar o relé
+      
+  }else{
+    digitalWrite(RELAY_PIN, LOW); // Desligar o relé
+  }
+  Firebase.setString(firebaseData,"/umidade", percentHumidity);
 
-  int humidity = Firebase.get(firebaseData, "/planta/umidade");
-  Firebase.setString(firebaseData,"/umidade", analogRead(pinoSensorUmidade));
   // Faz um get da string a partir do nó /mario no Firebase
  // if (Firebase.getString(firebaseData, "/mario")) {
  //   String myString = firebaseData.jsonString();
@@ -41,9 +54,8 @@ void loop() {
  // } else {
  //   Serial.println("Failed to get string from Firebase!");
  // }
- Serial.println(analogRead(pinoSensorUmidade));
   
-    if(Firebase.getInt(firebaseData,"/planta/umidade")){
+  if(Firebase.getInt(firebaseData,"/planta/umidade")){
       if(firebaseData.dataType()=="int"){
         //intValue = firebaseData.intData();
         Serial.print("Umidade: ");
@@ -51,8 +63,8 @@ void loop() {
       }else{
         Serial.println(firebaseData.errorReason());
       }
-    }
-    if (Firebase.get(firebaseData, "/mario")) {
+  }
+  if (Firebase.get(firebaseData, "/umidade")) {
     // Verifica o tipo de dados retornados
     if (firebaseData.dataType() == "string") {
       String myString = firebaseData.stringData();
