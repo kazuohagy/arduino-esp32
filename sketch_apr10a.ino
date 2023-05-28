@@ -1,6 +1,6 @@
 #include "FirebaseESP32.h"
 // adicionei aqui qualquer coisa tira
-#include "Network.h"
+//#include "Network.h"
 
 // Network network(2);
 // networl.motorOn();
