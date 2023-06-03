@@ -1,7 +1,12 @@
 #include "Firebase_ESP_Client.h"
 #include "addons/TokenHelper.h"
 #include "time.h"
+#include "DHT.h"
 
+//Sensor temperatura
+#define DHTPIN 4     // Digital pin connected to the DHT sensor
+#define DHTTYPE DHT11   // DHT 11
+DHT dht(DHTPIN, DHTTYPE);
 //info do Firestore
 #define FIREBASE_HOST "https://gaia-25c62-default-rtdb.firebaseio.com/"
 #define FIREBASE_AUTH "G5HN59JZValyPF813J4zc6kzI5Zit6zOiN6C1o71"
@@ -39,8 +44,8 @@ String dateYear;
 String dateDay;
 char buffer[50];  // Array de caracteres para armazenar a string formatada
 char bufferMes[20];
-char ano[2];
-char dia[2];
+char ano[5];
+char dia[3];
 
 void retornaMes(char* mes){
  if (strcmp("January", mes) == 0) {
@@ -94,6 +99,10 @@ void printLocalTime()
   strftime(bufferMes,20,"%B",&timeinfo);
 
   retornaMes(bufferMes);
+  strftime(ano,5,"%Y",&timeinfo);
+  dateYear = String(ano); 
+  strftime(dia,3,"%d",&timeinfo);
+  dateDay = String(dia); 
   Serial.println(&timeinfo, "%A, %B %d %Y %H:%M:%S");
 }
 
@@ -127,12 +136,25 @@ void setup() {
 
 // the loop function runs over and over again forever
 void loop() {
-  //delay(1000); // Aguarda 1 segundos antes de recuperar os dados do Firebase
+  delay(5000); // Aguarda 1 segundos antes de recuperar os dados do Firebase
   // Recupera a umidade do Firebase
   humidity = analogRead(pinoSensorUmidade);
   // Lendo dados
   percentHumidity = map(humidity, 0,4095, 100, 0);
   //int humidity = Firebase.get(firebaseData, "/planta/umidade");
+  // Sensor readings may also be up to 2 seconds 'old' (its a very slow sensor)
+  float h = dht.readHumidity();
+  // Read temperature as Celsius (the default)
+  float t = dht.readTemperature();
+
+  // Check if any reads failed and exit early (to try again).
+  if (isnan(h) || isnan(t)) {
+    Serial.println(F("Failed to read from DHT sensor!"));
+    return;
+  }
+  // Compute heat index in Celsius (isFahreheit = false)
+  //float hic = dht.computeHeatIndex(t, h, false); isso aqui e para pegar a temperatura
+
   FirebaseJson content;
   if(percentHumidity < 50){
     content.set("fields/ligado/booleanValue", "true"); // passando para o banco do firebase para depois
@@ -156,22 +178,22 @@ void loop() {
     //unsigned long tempoDecorrido = tempoFinal - tempoInicial;
     //content.set("fields/temp/doubleValue", String(tempoDecorrido).c_str());
   }
-  
-  content.set("fields/temp/doubleValue", String(tempoDecorrido).c_str());
+  content.set("fields/temperatura/doubleValue", String(tempoDecorrido).c_str())
+  content.set("fields/tempo/doubleValue", String(tempoDecorrido).c_str());
   //Firebase.setString(firebaseData,"/umidade", percentHumidity);
   String documentPath = "House/Room_1";
-  //String testPath = "House/Room_1/data/2023-06-01";
+  String testPath = "House/Room_1/data/"+dateDay+"-"+dateMonth+"-"+dateYear;
   
   content.set("fields/humidity/doubleValue", String(percentHumidity).c_str());
   Serial.print("Create a document... ");
   // para criar o banco
-  //if (Firebase.Firestore.createDocument(&fbdo, FIREBASE_PROJECT_ID, "" /* databaseId can be (default) or empty */, testPath.c_str(), content.raw()))
-  //    Serial.printf("ok\n%s\n\n", fbdo.payload().c_str());
-  //else
-  //    Serial.println(fbdo.errorReason());
+  if (Firebase.Firestore.createDocument(&fbdo, FIREBASE_PROJECT_ID, "" /* databaseId can be (default) or empty */, testPath.c_str(), content.raw()))
+      Serial.printf("ok\n%s\n\n", fbdo.payload().c_str());
+  else
+      Serial.println(fbdo.errorReason());
 
   //para atualizar o banco
-  if(Firebase.Firestore.patchDocument(&fbdo, FIREBASE_PROJECT_ID, "", documentPath.c_str(), content.raw(), "ligado,humidity,temp")){
+  if(Firebase.Firestore.patchDocument(&fbdo, FIREBASE_PROJECT_ID, "", testPath.c_str(), content.raw(), "ligado,humidity,temp")){
     Serial.printf("ok\n%s\n\n", fbdo.payload().c_str());
     return;
   }else{
@@ -203,6 +225,6 @@ void loop() {
   else
       Serial.println(fbdo.errorReason());
   Serial.println("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA");
-  Serial.println(dateMonth);
+  Serial.println(dateDay+"-"+dateMonth+"-"+dateYear);
   printLocalTime();
 }
