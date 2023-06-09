@@ -30,9 +30,13 @@ FirebaseConfig config;
 const int pinoSensorUmidade = A0;
 float percentHumidity;
 float humidity;
-long tempoInicial = 0;
-long tempoFinal = 0;
-unsigned long tempoDecorrido;
+unsigned long tempoInicial = 0; // Variável global para armazenar o tempo inicial
+unsigned long tempoDecorrido = 0; // Variável global para armazenar o tempo decorrido acumulado
+bool releLigado = false; // Variável para acompanhar o estado do relé
+
+float qtdAgua;
+bool contaAgua;
+
 
 const char* ntpServer = "pool.ntp.org";
 const long  gmtOffset_sec = -5400;
@@ -132,11 +136,12 @@ void setup() {
   config.token_status_callback = tokenStatusCallback; // see addons/TokenHelper.h
 
   Firebase.begin(&config, &auth); // Inicia a conexão do Firebase
+  dht.begin();//inicia sensor dht
 }
 
 // the loop function runs over and over again forever
 void loop() {
-  delay(5000); // Aguarda 1 segundos antes de recuperar os dados do Firebase
+  //delay(5000); // Aguarda 1 segundos antes de recuperar os dados do Firebase
   // Recupera a umidade do Firebase
   humidity = analogRead(pinoSensorUmidade);
   // Lendo dados
@@ -154,46 +159,96 @@ void loop() {
   }
   // Compute heat index in Celsius (isFahreheit = false)
   //float hic = dht.computeHeatIndex(t, h, false); isso aqui e para pegar a temperatura
+//PEGANDO O TEMPO INICIAL APENAS
+//String testPath = "I3wJ2uIEXVcwCXEJJrsYJss0G872/AeV9HanOSeARgKGjHcoK/data/"+dateDay+"-"+dateMonth+"-"+dateYear;
+String testPath = "I3wJ2uIEXVcwCXEJJrsYJss0G872/AeV9HanOSeARgKGjHcoK";
+String mask = "qntAgua";
 
+  //Serial.print("Get a document... ");
+  //// funcao para receber o campo escolhido
+  //if (Firebase.Firestore.getDocument(&fbdo, FIREBASE_PROJECT_ID, "", testPath.c_str(), mask.c_str())){
+  //    Serial.printf("ok\n%s\n\n", fbdo.payload().c_str());
+  //    // Create a FirebaseJson object and set content with received payload
+  //    FirebaseJson payload;
+  //    payload.setJsonData(fbdo.payload().c_str());
+  //    // Get the data from FirebaseJson object 
+  //    FirebaseJsonData jsonData;
+  //    payload.get(jsonData, "fields/qntAgua/doubleValue");
+  //    Serial.println("OLAAAAAAAAAAAAAAAAAAAAA");
+  //    Serial.println(jsonData.intValue);
+//
+  //   
+  //    String mario = jsonData.stringValue;
+  //    Serial.print("Valor de mario: ");
+  //    Serial.println(mario);
+  //    qtdAgua = atof(mario.c_str());
+//
+  //    //if(jsonData.stringValue == "0"){
+  //    //  Serial.println("E verdadeiro");
+  //    //  
+  //    //}
+  //    //else{
+  //    //  Serial.println("E falso");
+////
+  //    //}
+  //}
+  //else{
+  //  Serial.println(fbdo.errorReason());
+  //}
+
+//FIM
   FirebaseJson content;
-  if(percentHumidity < 50){
+  if (percentHumidity < 50) {
+    if (!releLigado) { // Verifica se o relé estava desligado anteriormente
+      releLigado = true; // Define que o relé está ligado
+      tempoInicial = millis(); // Inicia a contagem do tempo
+    }
     content.set("fields/ligado/booleanValue", "true"); // passando para o banco do firebase para depois
     digitalWrite(RELAY_PIN, HIGH); // Ligar o relé
 
-    if(millis() - tempoInicial >= 1000){
-      Serial.println(millis());
-      Serial.println(tempoInicial);
-      Serial.println(millis() - tempoInicial);
-      tempoDecorrido = tempoInicial/1000; //converter para segundos
-      tempoInicial = millis();
+  } else {
+    if (releLigado) { // Verifica se o relé estava ligado anteriormente
+      releLigado = false; // Define que o relé está desligado
+      unsigned long tempoDecorridoAtual = (millis() - tempoInicial)/1000; // Calcula o tempo decorrido atual
+      tempoDecorrido += tempoDecorridoAtual; // Acumula o tempo decorrido
+      tempoInicial = 0; // Reseta o tempo inicial
     }
-    //tempoInicial = millis();
-    //content.set("fields/temp/doubleValue", String(tempoInicial).c_str());
-      
-  }else{
     content.set("fields/ligado/booleanValue", "false");
     digitalWrite(RELAY_PIN, LOW); // Desligar o relé
-    //tempoFinal = millis() - tempoInicial;
-    
-    //unsigned long tempoDecorrido = tempoFinal - tempoInicial;
-    //content.set("fields/temp/doubleValue", String(tempoDecorrido).c_str());
+   
   }
-  content.set("fields/temperatura/doubleValue", String(tempoDecorrido).c_str())
-  content.set("fields/tempo/doubleValue", String(tempoDecorrido).c_str());
-  //Firebase.setString(firebaseData,"/umidade", percentHumidity);
-  String documentPath = "House/Room_1";
-  String testPath = "House/Room_1/data/"+dateDay+"-"+dateMonth+"-"+dateYear;
   
-  content.set("fields/humidity/doubleValue", String(percentHumidity).c_str());
-  Serial.print("Create a document... ");
-  // para criar o banco
-  if (Firebase.Firestore.createDocument(&fbdo, FIREBASE_PROJECT_ID, "" /* databaseId can be (default) or empty */, testPath.c_str(), content.raw()))
-      Serial.printf("ok\n%s\n\n", fbdo.payload().c_str());
-  else
-      Serial.println(fbdo.errorReason());
+ 
+  //Quantidade de agua gasta
+  qtdAgua = (16.5 * tempoDecorrido);
+
+  //String documentPath = "House/Room_1";
+
+  float qtdFireAgua = 0;
+ // if(qtdAgua > 1000){
+  qtdFireAgua = qtdAgua /1000;
+ // }else{
+  //  qtdFireAgua = qtdAgua;
+  //}
+  content.set("fields/temperatura/doubleValue", String(t).c_str());
+  content.set("fields/umidadeAr/doubleValue", String(h).c_str());
+  content.set("fields/tempo/doubleValue", String(tempoDecorrido).c_str());
+  content.set("fields/umidadeSolo/doubleValue", String(percentHumidity).c_str());
+  content.set("fields/qntAgua/doubleValue", String(qtdAgua).c_str());
+  content.set("fields/qntLitros/doubleValue", String(qtdFireAgua).c_str());
+  
+  //Serial.print("Create a document... ");
+  //para criar o banco
+  //if (Firebase.Firestore.createDocument(&fbdo, FIREBASE_PROJECT_ID, "" /* databaseId can be (default) or empty */, testPath.c_str(), content.raw())){
+  //    Serial.printf("ok\n%s\n\n", fbdo.payload().c_str());
+  //}
+  //else{
+  //    Serial.println(fbdo.errorReason()); 
+  //}
 
   //para atualizar o banco
-  if(Firebase.Firestore.patchDocument(&fbdo, FIREBASE_PROJECT_ID, "", testPath.c_str(), content.raw(), "ligado,humidity,temp")){
+  Serial.print("Update a document... ");
+  if(Firebase.Firestore.patchDocument(&fbdo, FIREBASE_PROJECT_ID, "", testPath.c_str(), content.raw(), "ligado,umidadeSolo,tempo,umidadeAr,temperatura,qntAgua,qntLitros")){
     Serial.printf("ok\n%s\n\n", fbdo.payload().c_str());
     return;
   }else{
@@ -201,30 +256,9 @@ void loop() {
   }
 
   
-  String mask = "ligado";
 
-  Serial.print("Get a document... ");
-  // funcao para receber o campo escolhido
-  if (Firebase.Firestore.getDocument(&fbdo, FIREBASE_PROJECT_ID, "", documentPath.c_str(), mask.c_str())){
-      Serial.printf("ok\n%s\n\n", fbdo.payload().c_str());
-      // Create a FirebaseJson object and set content with received payload
-      FirebaseJson payload;
-      payload.setJsonData(fbdo.payload().c_str());
-      // Get the data from FirebaseJson object 
-      FirebaseJsonData jsonData;
-      payload.get(jsonData, "fields/ligado/booleanValue", true);
-      Serial.println(jsonData.stringValue);
-
-      if(jsonData.stringValue == "true"){
-        Serial.println("E verdadeiro");
-      }
-      else{
-        Serial.println("E falso");
-      }
-  }
-  else
-      Serial.println(fbdo.errorReason());
+      
   Serial.println("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA");
-  Serial.println(dateDay+"-"+dateMonth+"-"+dateYear);
+  Serial.println(dateDay+"-"+dateMonth+"-"+dateYear+"-"+qtdAgua+"="+qtdFireAgua);
   printLocalTime();
 }
